@@ -1,0 +1,19 @@
+<div class="chat-container">
+  <select [(ngModel)]="model">
+    @for (mod of availableModels; track mod) {
+      <option [value]="mod">{{ mod }}</option>
+    }
+  </select>
+  <div class="messages">
+    @for (msg of messages; track msg; let i = $index) {
+      <div [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
+        <strong>{{ msg.role === 'user' ? 'You' : 'Ollama' }}:</strong> {{ msg.content }}
+        @if (isLoading && msg.role === 'assistant' && msg.content === '' && i === messages.length - 1) {
+          <span> Typing...</span>
+        }
+      </div>
+    }
+  </div>
+  <input type="text" [(ngModel)]="userInput" placeholder="Type your message..." (keyup.enter)="sendMessage()" />
+  <button (click)="sendMessage()">Send</button>
+</div>
