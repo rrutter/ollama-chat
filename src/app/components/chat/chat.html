@@ -14,6 +14,14 @@
     }
   </div>
 
+  <!-- Image display -->
+  @if (isGeneratingImage) {
+    <p>Generating image...</p>
+  }
+  @if (generatedImage) {
+    <img [src]="generatedImage" alt="Generated SD Image" style="max-width: 100%; margin-top: 10px;">
+  }
+
   <input type="text" [(ngModel)]="userInput" placeholder="Type your message..." (keyup.enter)="sendMessage()" />
   <button (click)="sendMessage()">Send</button>
 </div>

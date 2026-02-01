@@ -5,15 +5,16 @@ import { Observable, Subject } from 'rxjs';
   providedIn: 'root'
 })
 export class SdPromptService {
-  private apiUrl = 'http://localhost:11434/api/chat'; // Separate Ollama instance
+  private apiUrl = 'http://127.0.0.1:11434/api/chat'; // Separate Ollama instance
 
   generateSdPrompt(sceneText: string): Observable<string> {
     const subject = new Subject<string>();
     const payload = {
       model: 'sd-prompt-gen',
       messages: [
-        { role: 'system', content: 'You are an expert Stable Diffusion prompt generator. Given a scene description, create a concise, keyword-packed prompt optimized for SD: Start with key subject/action, add descriptors (highly detailed, masterpiece, 8k), styles (by greg rutkowski), weights (ethereal:1.2), negatives (ugly:-1.0). Keep it under 200 tokens.' },
-        { role: 'user', content: `Generate an SD prompt for this scene: ${sceneText}` }
+        { role: 'system', content: 'You are an observer in this scene. List everything you SEE with your eyes in detail.' },
+       // { role: 'user', content: `Generate an SD prompt for this scene: ${sceneText}` }
+        { role: 'user', content: `Output a comma delimited list of things you can only SEE in this scene: ${sceneText}` }
       ],
       stream: true // Stream for real-time feel
     };

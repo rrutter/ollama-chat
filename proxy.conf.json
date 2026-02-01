@@ -1,0 +1,8 @@
+{
+  "/sdapi": {
+    "target": "http://127.0.0.1:7860",
+    "secure": false,
+    "changeOrigin": true,
+    "ws": true
+  }
+}

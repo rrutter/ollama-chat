@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ChatBubbleComponent} from '../chat-bubble/chat-bubble';
 import { SdPromptService} from '../../services/sd-prompt';
+import {SdImageService} from '../../services/sd-image';
 
 @Component({
   selector: 'app-chat',
@@ -16,14 +17,20 @@ import { SdPromptService} from '../../services/sd-prompt';
 export class ChatComponent implements OnInit {
   messages: { role: string, content: string }[] = [];
   userInput: string = '';
-  model: string = 'sakura-rp-dev-v2'; // Default
-  availableModels: string[] = [];
+  model: string = 'sakura-rp-dev-v2';
+  availableModels: string[] = []; //testing purposes only
   isLoading: boolean = false;
-  generatedPrompt: string = ''; // For displaying the final prompt (optional)
-  pendingSdPrompt: string = ''; // Background-generated prompt
+  //TODO: these need to go to a prompt class or interface probably
+  generatedPrompt: string = '';
+  pendingSdPrompt: string = '';
+
+  //TODO: these need to go to an image class or interface probably
+  generatedImage: string = ''; // Base64 image to display
+  isGeneratingImage: boolean = false; // For spinner
 
   constructor(private ollamaService: OllamaService,
               private sdPromptService: SdPromptService,
+              private sdImageService: SdImageService,
               private cdr: ChangeDetectorRef) { }
 
   ngOnInit() {
@@ -42,9 +49,24 @@ export class ChatComponent implements OnInit {
 
   generateSdImage(index: number) {
     if (this.pendingSdPrompt) {
-      this.generatedPrompt = this.pendingSdPrompt; // Display it, or send to SD here later
+      this.isGeneratingImage = true;
+      this.generatedPrompt = this.pendingSdPrompt; // Optional: Show prompt
       this.cdr.detectChanges();
-      // TODO: Chain to SD gen if ready (e.g., this.sdPromptService.generateImage(this.pendingSdPrompt))
+
+      this.sdImageService.generateImage(this.pendingSdPrompt).subscribe(
+        base64Image => {
+          this.generatedImage = `data:image/png;base64,${base64Image}`;
+          this.isGeneratingImage = false;
+          this.cdr.detectChanges();
+          // Optional: Add as a new message { role: 'system', content: 'Generated Image', image: this.generatedImage }
+        },
+        error => {
+          console.error('Image gen failed:', error);
+          this.generatedPrompt = 'Oops, image gen failed!';
+          this.isGeneratingImage = false;
+          this.cdr.detectChanges();
+        }
+      );
       this.pendingSdPrompt = ''; // Clear for next
     } else {
       // Fallback if not prepped (rare)
@@ -58,7 +80,6 @@ export class ChatComponent implements OnInit {
     }
   }
 
-  // ... regenerateMessage unchanged ...
 
   sendMessage() {
     if (!this.userInput.trim() || this.isLoading) return;
