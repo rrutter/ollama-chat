@@ -46,37 +46,36 @@ export class ChatComponent implements OnInit {
     });
   }
 
-  loadAvailableModels(): void {
-    this.ollamaService.getModels().subscribe(
-      models => {
+  private loadAvailableModels(): void {
+    this.ollamaService.getModels().subscribe({
+      next: models => {
         this.availableModels = models;
         if (!this.availableModels.includes(this.model) && this.availableModels.length > 0) {
           this.model = this.availableModels[0];
+          this.cdr.markForCheck();
         }
-        this.cdr.detectChanges();
       },
-      error => console.error('Failed to load models:', error)
-    );
+      error: err => console.error('Failed to load models:', err)
+    });
   }
 
   generateSdImage(index: number) {
     const prompt = this.promptHandler.getPendingPrompt();
     if (prompt) {
       this.imageGenerator.generateImageFromPrompt(prompt);
-      this.promptHandler.clearPendingPrompt(); // Clear for next
+      this.promptHandler.clearPendingPrompt();
     } else {
-      // Fallback: Generate prompt on the fly (rare)
-      const scene = this.messages[index].content;
-      this.sdPromptService.generateSdPrompt(scene).subscribe(
-        delta => { /* Handle if you want real-time */
-        },
-        error => {
-          console.error('Fallback prompt failed');
-        },
-        () => {
-          this.imageGenerator.generateImageFromPrompt(this.promptHandler.getPendingPrompt());
-        }
-      );
+      const assistantResponse = this.messages[index]?.content;
+      if (!assistantResponse) {
+        console.debug('No assistant response found');
+        return;
+      }
+
+      this.sdPromptService.generateSdPrompt(assistantResponse).subscribe({
+        next: () => {}, // real-time option
+        error: err => console.error('Fallback prompt failed:', err),
+        complete: () => this.imageGenerator.generateImageFromPrompt(this.promptHandler.getPendingPrompt())
+      });
     }
   }
 
