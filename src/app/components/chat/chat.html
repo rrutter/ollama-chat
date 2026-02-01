@@ -4,16 +4,16 @@
       <option [value]="mod">{{ mod }}</option>
     }
   </select>
+
   <div class="messages">
-    @for (msg of messages; track msg; let i = $index) {
-      <div [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
-        <strong>{{ msg.role === 'user' ? 'You' : 'Ollama' }}:</strong> {{ msg.content }}
-        @if (isLoading && msg.role === 'assistant' && msg.content === '' && i === messages.length - 1) {
-          <span> Typing...</span>
-        }
-      </div>
+    @for (msg of messages; track $index; let i = $index) {
+      <app-chat-bubble [msg]="msg" [isLastAssistant]="msg.role === 'assistant' && i === messages.length - 1"
+                       (generateImage)="generateSdImage(i)"
+                       (regenerate)="regenerateMessage(i)">
+      </app-chat-bubble>
     }
   </div>
+
   <input type="text" [(ngModel)]="userInput" placeholder="Type your message..." (keyup.enter)="sendMessage()" />
   <button (click)="sendMessage()">Send</button>
 </div>

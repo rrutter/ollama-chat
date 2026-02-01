@@ -1,0 +1,7 @@
+<div [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
+  <strong>{{ msg.role === 'user' ? 'You' : 'Sakura' }}:</strong> {{ msg.content }}
+  @if (isLastAssistant) {
+    <button class="regenerate-btn" (click)="onRegenerate()">Retry</button>
+    <button class="image-btn" (click)="onGenerateImage()">Generate Image</button>
+  }
+</div>

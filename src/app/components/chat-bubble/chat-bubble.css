@@ -1,0 +1,72 @@
+div {
+  max-width: 70%; /* Keep it from spanning full width */
+  margin: 10px 0;
+  padding: 10px 15px;
+  border-radius: 20px; /* Rounded bubble edges */
+  position: relative;
+  word-wrap: break-word; /* Prevent long words from breaking layout */
+  white-space: pre-wrap; /* Preserve newlines as breaks for paragraphs! */
+}
+
+.user {
+  background: #dcf8c6; /* Light green for user */
+  color: #000;
+  margin-left: auto; /* Align right */
+  border-bottom-right-radius: 0; /* Flat bottom-right for tail */
+}
+
+.user::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: -10px;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-top-color: #dcf8c6; /* User tail */
+  border-right: 0;
+}
+
+.assistant {
+  background: #fff; /* White for assistant */
+  color: #000;
+  border: 1px solid #ccc;
+  margin-right: auto; /* Align left */
+  border-bottom-left-radius: 0; /* Flat bottom-left for tail */
+}
+
+.assistant::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -10px;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-top-color: #fff; /* Assistant tail */
+  border-left: 0;
+}
+
+/* Fix dashes/asterisks: Style actions italic or dimmed */
+.assistant strong + span { /* If you wrap content in span later */
+  display: block; /* Force paragraphs */
+}
+
+.regenerate-btn {
+  position: absolute;
+  bottom: -15px; /* Below bubble */
+  right: 10px;
+  font-size: 0.8em;
+  padding: 2px 5px;
+  background: #eee;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.image-btn {
+  position: absolute;
+  bottom: -15px;
+  right: 50px; /* Next to regenerate */
+  /* Similar styling */
+}
