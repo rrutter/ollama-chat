@@ -3,8 +3,9 @@ import { OllamaService } from '../../services/ollama';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ChatBubbleComponent} from '../chat-bubble/chat-bubble';
-import { SdPromptService} from '../../services/sd-prompt';
-import {SdImageService} from '../../services/sd-image';
+import { SdPromptHandler } from '../../common/sd-prompt-handler';
+import { ImageHandler } from '../../common/image-handler';
+import {SdPromptService} from '../../services/sd-prompt';
 
 @Component({
   selector: 'app-chat',
@@ -13,84 +14,89 @@ import {SdImageService} from '../../services/sd-image';
   standalone: true,
   imports: [FormsModule, CommonModule, ChatBubbleComponent]
 })
-
 export class ChatComponent implements OnInit {
   messages: { role: string, content: string }[] = [];
   userInput: string = '';
   model: string = 'sakura-rp-dev-v2';
-  availableModels: string[] = []; //testing purposes only
+  availableModels: string[] = [];
   isLoading: boolean = false;
-  //TODO: these need to go to a prompt class or interface probably
-  generatedPrompt: string = '';
-  pendingSdPrompt: string = '';
-
-  //TODO: these need to go to an image class or interface probably
-  generatedImage: string = ''; // Base64 image to display
-  isGeneratingImage: boolean = false; // For spinner
+  generatedImage: string = '';
+  isGenerating: boolean = false;
 
   constructor(private ollamaService: OllamaService,
               private sdPromptService: SdPromptService,
-              private sdImageService: SdImageService,
-              private cdr: ChangeDetectorRef) { }
+              private promptHandler: SdPromptHandler,
+              public imageGenerator: ImageHandler,
+              private cdr: ChangeDetectorRef) {
+  }
 
   ngOnInit() {
+    this.initImageGenListeners();
+    this.loadAvailableModels();
+  }
+
+  initImageGenListeners(){
+    this.imageGenerator.generatedImage$.subscribe(image => {
+      this.generatedImage = image;
+      this.cdr.detectChanges();
+    });
+    this.imageGenerator.isGenerating$.subscribe(isGen => {
+      this.isGenerating = isGen;
+      this.cdr.detectChanges();
+    });
+  }
+
+  loadAvailableModels(): void {
     this.ollamaService.getModels().subscribe(
       models => {
         this.availableModels = models;
-        // Ensure default is selected if available, else first one
         if (!this.availableModels.includes(this.model) && this.availableModels.length > 0) {
           this.model = this.availableModels[0];
         }
-        this.cdr.detectChanges(); // Refresh UI if needed
+        this.cdr.detectChanges();
       },
       error => console.error('Failed to load models:', error)
     );
   }
 
   generateSdImage(index: number) {
-    if (this.pendingSdPrompt) {
-      this.isGeneratingImage = true;
-      this.generatedPrompt = this.pendingSdPrompt; // Optional: Show prompt
-      this.cdr.detectChanges();
-
-      this.sdImageService.generateImage(this.pendingSdPrompt).subscribe(
-        base64Image => {
-          this.generatedImage = `data:image/png;base64,${base64Image}`;
-          this.isGeneratingImage = false;
-          this.cdr.detectChanges();
-          // Optional: Add as a new message { role: 'system', content: 'Generated Image', image: this.generatedImage }
+    const prompt = this.promptHandler.getPendingPrompt();
+    if (prompt) {
+      this.imageGenerator.generateImageFromPrompt(prompt);
+      this.promptHandler.clearPendingPrompt(); // Clear for next
+    } else {
+      // Fallback: Generate prompt on the fly (rare)
+      const scene = this.messages[index].content;
+      this.sdPromptService.generateSdPrompt(scene).subscribe(
+        delta => { /* Handle if you want real-time */
         },
         error => {
-          console.error('Image gen failed:', error);
-          this.generatedPrompt = 'Oops, image gen failed!';
-          this.isGeneratingImage = false;
-          this.cdr.detectChanges();
+          console.error('Fallback prompt failed');
+        },
+        () => {
+          this.imageGenerator.generateImageFromPrompt(this.promptHandler.getPendingPrompt());
         }
-      );
-      this.pendingSdPrompt = ''; // Clear for next
-    } else {
-      // Fallback if not prepped (rare)
-      const scene = this.messages[index].content;
-      this.generatedPrompt = 'Generating prompt...';
-      this.sdPromptService.generateSdPrompt(scene).subscribe(
-        delta => { this.generatedPrompt += delta; this.cdr.detectChanges(); },
-        error => { this.generatedPrompt = 'Oops!'; },
-        () => { /* Ready—chain to SD if wanted */ }
       );
     }
   }
 
+  private streamResponse(isRegenerate: boolean = false, index?: number) {
+    let pendingIndex: number;
 
-  sendMessage() {
-    if (!this.userInput.trim() || this.isLoading) return;
+    if (isRegenerate) {
+      if (index === undefined)index=this.messages.length-1; //default to the last one
+      this.messages[index].content = ''; // Clear for regenerate
+      pendingIndex = index;
+    } else {
+      if (!this.userInput.trim() || this.isLoading) return;
+      this.messages.push({role: 'user', content: this.userInput});
+      this.userInput = '';
+      pendingIndex = this.messages.push({role: 'assistant', content: ''}) - 1;
+    }
 
-    this.messages.push({ role: 'user', content: this.userInput });
-    this.userInput = '';
-
-    const pendingIndex = this.messages.push({ role: 'assistant', content: '' }) - 1;
     this.isLoading = true;
 
-    const history = this.messages.slice(0, -1).map(msg => ({ role: msg.role, content: msg.content }));
+    const history = this.messages.slice(0, pendingIndex).map(msg => ({role: msg.role, content: msg.content}));
 
     this.ollamaService.streamMessage(this.model, history).subscribe(
       delta => {
@@ -108,49 +114,25 @@ export class ChatComponent implements OnInit {
         this.isLoading = false;
         this.cdr.detectChanges();
 
-        // Background: Generate SD prompt from recent context (last 2 exchanges, up to 4 messages)
-        const recentHistory = this.messages.slice(-4); // Safe for short chats
-        const sceneText = recentHistory.map(msg =>
-          `${msg.role === 'user' ? 'You' : 'Sakura'}: ${msg.content}`
-        ).join('\n\n');
-
-        this.pendingSdPrompt = ''; // Reset
-        this.sdPromptService.generateSdPrompt(sceneText).subscribe(
-          delta => { this.pendingSdPrompt += delta; },
-          error => { console.error('Prompt gen failed'); },
-          () => { console.log('SD prompt ready:', this.pendingSdPrompt); } // Or notify UI subtly
-        );
+        if (!isRegenerate) {
+          // Background prompt gen only for new messages
+          const recentHistory = this.messages.slice(-4);
+          const sceneText = recentHistory.map(msg =>
+            `${msg.role === 'user' ? 'User' : 'Character'}: ${msg.content}`
+          ).join('\n\n');
+          this.promptHandler.generatePromptInBackground(sceneText);
+        }
       }
     );
   }
 
+
+  sendMessage() {
+    this.streamResponse();
+  }
+
   regenerateMessage(index: number) {
-    if (this.messages[index].role !== 'assistant') return; // Safety
-
-    // Backup old content if you want undo, but for now, clear it
-    this.messages[index].content = ''; // Show loading or empty
-    this.isLoading = true;
-    this.cdr.detectChanges();
-
-    // Rebuild history up to the user's last message (before this assistant one)
-    const history = this.messages.slice(0, index).map(msg => ({ role: msg.role, content: msg.content }));
-
-    // Re-stream
-    this.ollamaService.streamMessage(this.model, history).subscribe(
-      delta => {
-        this.messages[index].content += delta;
-        this.cdr.detectChanges();
-      },
-      error => {
-        this.messages[index].content = 'Oops, retry failed!';
-        this.isLoading = false;
-        this.cdr.detectChanges();
-      },
-      () => {
-        this.isLoading = false;
-        this.cdr.detectChanges();
-      }
-    );
+    this.streamResponse(true, index);
   }
 }
 
