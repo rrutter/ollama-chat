@@ -63,18 +63,36 @@ export class ChatComponent implements OnInit {
     const prompt = this.promptHandler.getPendingPrompt();
     if (prompt) {
       this.imageGenerator.generateImageFromPrompt(prompt);
-      this.promptHandler.clearPendingPrompt();
+      // Removed: this.promptHandler.clearPendingPrompt(); // Now persist for multiple image gens
     } else {
-      const assistantResponse = this.messages[index]?.content;
-      if (!assistantResponse) {
-        console.debug('No assistant response found');
+      // Build sceneText from recent history around this message
+      const startSlice = Math.max(0, index - 3); // Last 4 including this assistant msg
+      const recentHistory = this.messages.slice(startSlice, index + 1);
+      const sceneText = recentHistory.map(msg =>
+        `${msg.role === 'user' ? 'User' : 'Character'}: ${msg.content}`
+      ).join('\n\n');
+
+      if (!sceneText.trim()) {
+        console.debug('No valid scene text found for prompt generation');
         return;
       }
 
-      this.sdPromptService.generateSdPrompt(assistantResponse).subscribe({
-        next: () => {}, // real-time option
+      this.promptHandler.pendingSdPrompt = ''; // Reset before fallback (but will accumulate and persist after)
+
+      this.sdPromptService.generateSdPrompt(sceneText).subscribe({
+        next: delta => {
+          this.promptHandler.pendingSdPrompt += delta; // Accumulate
+        },
         error: err => console.error('Fallback prompt failed:', err),
-        complete: () => this.imageGenerator.generateImageFromPrompt(this.promptHandler.getPendingPrompt())
+        complete: () => {
+          const generatedPrompt = this.promptHandler.getPendingPrompt();
+          if (generatedPrompt.trim()) {
+            this.imageGenerator.generateImageFromPrompt(generatedPrompt);
+            // Removed: this.promptHandler.clearPendingPrompt(); // Persist for reuse
+          } else {
+            console.debug('Fallback generated an empty prompt');
+          }
+        }
       });
     }
   }
@@ -113,12 +131,18 @@ export class ChatComponent implements OnInit {
         this.isLoading = false;
         this.cdr.detectChanges();
 
-        if (!isRegenerate) {
-          // Background prompt gen only for new messages
-          const recentHistory = this.messages.slice(-4);
-          const sceneText = recentHistory.map(msg =>
-            `${msg.role === 'user' ? 'User' : 'Character'}: ${msg.content}`
-          ).join('\n\n');
+        // Get previous prompt before update (for passing to service)
+        const previousPrompt = this.promptHandler.getPendingPrompt();
+
+        const recentHistory = this.messages.slice(-4);
+        const sceneText = recentHistory.map(msg =>
+          `${msg.role === 'user' ? 'User' : 'Character'}: ${msg.content}`
+        ).join('\n\n');
+
+        // Use update if there's previous, else generate
+        if (previousPrompt) {
+          this.promptHandler.updatePromptInBackground(sceneText, previousPrompt);
+        } else {
           this.promptHandler.generatePromptInBackground(sceneText);
         }
       }
@@ -131,6 +155,7 @@ export class ChatComponent implements OnInit {
   }
 
   regenerateMessage(index: number) {
+    this.promptHandler.clearPendingPrompt();
     this.streamResponse(true, index);
   }
 }
