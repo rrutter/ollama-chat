@@ -63,10 +63,8 @@ export class ChatComponent implements OnInit {
     const prompt = this.promptHandler.getPendingPrompt();
     if (prompt) {
       this.imageGenerator.generateImageFromPrompt(prompt);
-      // Removed: this.promptHandler.clearPendingPrompt(); // Now persist for multiple image gens
     } else {
-      // Build sceneText from recent history around this message
-      const startSlice = Math.max(0, index - 3); // Last 4 including this assistant msg
+      const startSlice = Math.max(0, index - 3);
       const recentHistory = this.messages.slice(startSlice, index + 1);
       const sceneText = recentHistory.map(msg =>
         `${msg.role === 'user' ? 'User' : 'Character'}: ${msg.content}`
@@ -77,18 +75,17 @@ export class ChatComponent implements OnInit {
         return;
       }
 
-      this.promptHandler.pendingSdPrompt = ''; // Reset before fallback (but will accumulate and persist after)
+      this.promptHandler.pendingSdPrompt = '';
 
       this.sdPromptService.generateSdPrompt(sceneText).subscribe({
         next: delta => {
-          this.promptHandler.pendingSdPrompt += delta; // Accumulate
+          this.promptHandler.pendingSdPrompt += delta;
         },
         error: err => console.error('Fallback prompt failed:', err),
         complete: () => {
           const generatedPrompt = this.promptHandler.getPendingPrompt();
           if (generatedPrompt.trim()) {
             this.imageGenerator.generateImageFromPrompt(generatedPrompt);
-            // Removed: this.promptHandler.clearPendingPrompt(); // Persist for reuse
           } else {
             console.debug('Fallback generated an empty prompt');
           }
@@ -101,8 +98,8 @@ export class ChatComponent implements OnInit {
     let pendingIndex: number;
 
     if (isRegenerate) {
-      if (index === undefined)index=this.messages.length-1; //default to the last one
-      this.messages[index].content = ''; // Clear for regenerate
+      if (index === undefined)index=this.messages.length-1;
+      this.messages[index].content = '';
       pendingIndex = index;
     } else {
       if (!this.userInput.trim() || this.isLoading) return;
@@ -131,7 +128,6 @@ export class ChatComponent implements OnInit {
         this.isLoading = false;
         this.cdr.detectChanges();
 
-        // Get previous prompt before update (for passing to service)
         const previousPrompt = this.promptHandler.getPendingPrompt();
 
         const recentHistory = this.messages.slice(-4);
@@ -139,7 +135,6 @@ export class ChatComponent implements OnInit {
           `${msg.role === 'user' ? 'User' : 'Character'}: ${msg.content}`
         ).join('\n\n');
 
-        // Use update if there's previous, else generate
         if (previousPrompt) {
           this.promptHandler.updatePromptInBackground(sceneText, previousPrompt);
         } else {
