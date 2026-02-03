@@ -9,7 +9,8 @@
     @for (msg of messages; track $index; let i = $index) {
       <app-chat-bubble [msg]="msg" [isLastAssistant]="msg.role === 'assistant' && i === messages.length - 1"
                        (generateImage)="generateSdImage(i)"
-                       (regenerate)="regenerateMessage(i)">
+                       (regenerate)="regenerateMessage(i)"
+                       [hasSdPrompt]="!!promptHandler.getPendingPrompt()">
       </app-chat-bubble>
     }
   </div>
@@ -21,7 +22,6 @@
   @if (generatedImage) {
     <img [src]="generatedImage" alt="Generated SD Image" style="max-width: 100%; margin-top: 10px;">
   }
-
   <input type="text" [(ngModel)]="userInput" placeholder="Type your message..." (keyup.enter)="sendMessage()" />
   <button (click)="sendMessage()">Send</button>
 </div>

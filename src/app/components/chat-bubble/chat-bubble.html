@@ -2,6 +2,6 @@
   <strong>{{ msg.role === 'user' ? 'You' : 'Sakura' }}:</strong> {{ msg.content }}
   @if (isLastAssistant) {
     <button class="regenerate-btn" (click)="onRegenerate()">Retry</button>
-    <button class="image-btn" (click)="onGenerateImage()">Generate Image</button>
+    <button class="image-btn" (click)="onGenerateImage()" [disabled]="!hasSdPrompt">Generate Image</button>
   }
 </div>

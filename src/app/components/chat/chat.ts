@@ -25,7 +25,7 @@ export class ChatComponent implements OnInit {
 
   constructor(private ollamaService: OllamaService,
               private sdPromptService: SdPromptService,
-              private promptHandler: SdPromptHandler,
+              protected promptHandler: SdPromptHandler,
               public imageGenerator: ImageHandler,
               private cdr: ChangeDetectorRef) {
   }
@@ -33,6 +33,9 @@ export class ChatComponent implements OnInit {
   ngOnInit() {
     this.initImageGenListeners();
     this.loadAvailableModels();
+    this.promptHandler.promptReady$.subscribe(() => {
+      this.cdr.detectChanges();
+    });
   }
 
   initImageGenListeners(){
@@ -106,6 +109,7 @@ export class ChatComponent implements OnInit {
       this.messages.push({role: 'user', content: this.userInput});
       this.userInput = '';
       pendingIndex = this.messages.push({role: 'assistant', content: ''}) - 1;
+      this.promptHandler.clearPendingPrompt();
     }
 
     this.isLoading = true;

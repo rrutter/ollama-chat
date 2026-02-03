@@ -10,9 +10,10 @@ import { CommonModule } from '@angular/common';
 })
 export class ChatBubbleComponent {
   @Input() msg: { role: string, content: string } = { role: '', content: '' };
-  @Input() isLastAssistant: boolean = false; // For showing regenerate button
-  @Output() regenerate = new EventEmitter<void>(); // Emit when button clicked
+  @Input() isLastAssistant: boolean = false;
+  @Output() regenerate = new EventEmitter<void>();
   @Output() generateImage = new EventEmitter<void>();
+  @Input() hasSdPrompt: boolean = false;
 
   onGenerateImage() {
     this.generateImage.emit();
